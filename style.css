@@ -102,12 +102,11 @@ body {
 }
 #trace-layer polyline.hint-line { stroke: var(--star); }
 
-/* ---- tiles ---- */
+/* ---- tiles (circles, like lily pads) ---- */
 .tile {
   position: absolute; display: flex; align-items: center; justify-content: center;
-  border-radius: 16%;
+  border-radius: 50%;
   background: var(--lily);
-  border: 2px solid var(--lily-edge);
   color: var(--ink);
   font-weight: 800;
   cursor: pointer;
@@ -116,20 +115,20 @@ body {
 }
 .tile .letter { text-transform: uppercase; }
 .tile.selected {
-  background: var(--accent); border-color: #5ea63a; color: #fff;
+  background: var(--accent); color: #fff;
   transform: scale(1.08); z-index: 2;
 }
-.tile.hint-glow { background: var(--star); border-color: #c78f1d; }
-.tile .pips {
-  position: absolute; bottom: 7%; display: flex; gap: 8%;
-  width: 100%; justify-content: center; pointer-events: none;
+.tile.hint-glow { background: var(--star); }
+/* remaining-uses arc: one segment per unfound word using this letter */
+.tile .ring {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none;
 }
-.tile .pips i {
-  width: 8%; aspect-ratio: 1; border-radius: 50%;
-  background: rgba(35,55,47,.45); display: block;
+.tile .ring path {
+  fill: none; stroke: #5ea63a; stroke-width: 7; stroke-linecap: round;
 }
-.tile .pips span { font-size: .55em; font-weight: 700; opacity: .55; line-height: 1; }
-.tile.selected .pips i { background: rgba(255,255,255,.7); }
+.tile.selected .ring path { stroke: rgba(255,255,255,.85); }
+.tile.hint-glow .ring path { stroke: #8a6210; }
 
 /* frog + pad states */
 .tile.frog { background: transparent; border-color: transparent; box-shadow: none; }

@@ -2,10 +2,10 @@
  * Ribbit clone — puzzle generator.
  *
  * Levels are generated constructively: real dictionary words are laid onto the
- * grid as self-avoiding orthogonal paths that must reuse letters already on the
- * board, until every cell is covered. The required word list *is* the
- * construction, so every generated level is solvable by definition — finding
- * all placed words clears every letter.
+ * grid as self-avoiding 8-way paths (diagonals allowed, crossings not) that
+ * must reuse letters already on the board, until every cell is covered. The
+ * required word list *is* the construction, so every generated level is
+ * solvable by definition — finding all placed words clears every letter.
  *
  * Works in the browser (window.RibbitGen) and in Node (module.exports) so the
  * same code can be unit-tested headlessly.
@@ -69,6 +69,7 @@
     return maxLen;
   }
 
+  // Orthogonal neighbors (used for frog-group popping).
   function neighborsOf(cell, size) {
     var r = Math.floor(cell / size);
     var c = cell % size;
@@ -80,14 +81,44 @@
     return out;
   }
 
+  // All 8 neighbors — word paths may run diagonally.
+  function neighbors8(cell, size) {
+    var r = Math.floor(cell / size);
+    var c = cell % size;
+    var out = [];
+    for (var dr = -1; dr <= 1; dr++) {
+      for (var dc = -1; dc <= 1; dc++) {
+        if (!dr && !dc) continue;
+        var nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < size && nc >= 0 && nc < size) out.push(nr * size + nc);
+      }
+    }
+    return out;
+  }
+
+  function isDiagonal(a, b, size) {
+    return Math.floor(a / size) !== Math.floor(b / size) && a % size !== b % size;
+  }
+
+  // For a diagonal step a-b, the key of the opposite diagonal of the same
+  // 2x2 square. Two crossing diagonal connections are never allowed — they
+  // would overlap visually and read as one X.
+  function crossKey(a, b, size) {
+    var ra = Math.floor(a / size), ca = a % size;
+    var rb = Math.floor(b / size), cb = b % size;
+    return edgeKey(ra * size + cb, rb * size + ca);
+  }
+
   function edgeKey(a, b) {
     return a < b ? a + '-' + b : b + '-' + a;
   }
 
-  // Random self-avoiding orthogonal walk of the given length. During the
-  // coverage phase the walk is biased toward empty cells so the board fills
-  // quickly and words are forced to cross existing letters.
-  function randomPath(rng, size, len, letters, preferEmpty) {
+  // Random self-avoiding 8-way walk of the given length. During the coverage
+  // phase the walk is biased toward empty cells so the board fills quickly and
+  // words are forced to cross existing letters. Diagonal steps are weighted
+  // below orthogonal ones and may never cross an existing diagonal connection
+  // (edgeSet holds every connection placed so far).
+  function randomPath(rng, size, len, letters, preferEmpty, edgeSet) {
     var cellCount = size * size;
     var start;
     if (preferEmpty && rng() < 0.65) {
@@ -99,19 +130,28 @@
     }
     var path = [start];
     var inPath = {};
+    var pathEdges = {};
     inPath[start] = true;
     while (path.length < len) {
+      var last = path[path.length - 1];
       var options = [];
-      var nbs = neighborsOf(path[path.length - 1], size);
+      var nbs = neighbors8(last, size);
       for (var j = 0; j < nbs.length; j++) {
         var nb = nbs[j];
         if (inPath[nb]) continue;
-        options.push(nb);
-        // Empty cells get an extra ticket in the draw during coverage.
-        if (preferEmpty && letters[nb] === null) options.push(nb);
+        var weight = 3;
+        if (isDiagonal(last, nb, size)) {
+          var ck = crossKey(last, nb, size);
+          if (edgeSet[ck] || pathEdges[ck]) continue;
+          weight = 2;
+        }
+        // Empty cells get extra tickets in the draw during coverage.
+        if (preferEmpty && letters[nb] === null) weight *= 2;
+        for (var t = 0; t < weight; t++) options.push(nb);
       }
       if (!options.length) return null;
       var next = pick(rng, options);
+      pathEdges[edgeKey(last, next)] = true;
       path.push(next);
       inPath[next] = true;
     }
@@ -163,9 +203,14 @@
       var letters = new Array(cellCount).fill(null);
       var placed = [];
       var usedWords = {};
+      var edgeSet = {};
       var emptyCount = cellCount;
       var attempts = 0;
       var stuck = false;
+
+      var recordEdges = function (path) {
+        for (var e = 1; e < path.length; e++) edgeSet[edgeKey(path[e - 1], path[e])] = true;
+      };
 
       // Coverage phase: place words until every cell holds a letter. Each
       // placement after the first must both touch an empty cell and (when
@@ -176,7 +221,7 @@
           break;
         }
         var len = pickLen(rng, maxLen);
-        var path = randomPath(rng, size, len, letters, true);
+        var path = randomPath(rng, size, len, letters, true, edgeSet);
         if (!path) continue;
         var coversEmpty = false;
         var touchesFilled = false;
@@ -205,6 +250,7 @@
         }
         placed.push({ word: word, path: path });
         usedWords[word] = true;
+        recordEdges(path);
       }
       if (stuck) continue;
 
@@ -214,13 +260,14 @@
       var extras = 0;
       for (var t = 0; t < cellCount * 40 && extras < extraCap; t++) {
         var elen = pickLen(rng, maxLen);
-        var epath = randomPath(rng, size, elen, letters, false);
+        var epath = randomPath(rng, size, elen, letters, false, edgeSet);
         if (!epath) continue;
         var s = '';
         for (var q = 0; q < epath.length; q++) s += letters[epath[q]];
         if (!dict.byLenSet[elen][s] || usedWords[s]) continue;
         placed.push({ word: s, path: epath });
         usedWords[s] = true;
+        recordEdges(epath);
         extras++;
       }
 
@@ -253,6 +300,7 @@
     var size = puz.size;
     var cellCount = size * size;
     var cellOwners = new Array(cellCount).fill(0);
+    var allEdges = {};
     var seen = {};
     for (var i = 0; i < puz.words.length; i++) {
       var entry = puz.words[i];
@@ -274,13 +322,23 @@
           var a = path[j - 1];
           var ra = Math.floor(a / size), ca = a % size;
           var rb = Math.floor(cell / size), cb = cell % size;
-          if (Math.abs(ra - rb) + Math.abs(ca - cb) !== 1) return 'non-adjacent step: ' + word;
+          if (Math.max(Math.abs(ra - rb), Math.abs(ca - cb)) !== 1) return 'non-adjacent step: ' + word;
+          allEdges[edgeKey(a, cell)] = true;
         }
       }
     }
     for (var c = 0; c < cellCount; c++) {
       if (puz.letters[c] === null) return 'uncovered cell ' + c;
       if (cellOwners[c] === 0) return 'cell ' + c + ' belongs to no word';
+    }
+    // No two diagonal connections may cross each other.
+    var edgeList = Object.keys(allEdges);
+    for (var k2 = 0; k2 < edgeList.length; k2++) {
+      var ends = edgeList[k2].split('-');
+      var e1 = +ends[0], e2 = +ends[1];
+      if (isDiagonal(e1, e2, size) && allEdges[crossKey(e1, e2, size)]) {
+        return 'crossing diagonal connections at ' + edgeList[k2];
+      }
     }
     return null; // solvable
   }
@@ -292,6 +350,9 @@
     makeRng: makeRng,
     edgeKey: edgeKey,
     neighborsOf: neighborsOf,
+    neighbors8: neighbors8,
+    isDiagonal: isDiagonal,
+    crossKey: crossKey,
     parseDict: parseDict,
     generate: generate,
     verifySolvable: verifySolvable

@@ -15,11 +15,13 @@ python3 -m http.server 8000
 
 ## How it plays
 
-- The board is a grid of letters joined by visible paths.
+- The board is a grid of letter circles joined by visible paths, including
+  diagonals (two diagonal paths never cross each other).
 - **Drag along the paths** to trace words of 4+ letters. Every path belongs to
   at least one hidden word; the side panel shows how many words of each length
   remain, and **★** marks the longest word in the puzzle.
-- The dots on each tile show how many unfound words still use that letter.
+- The segmented arc around each circle shows the letter's remaining uses —
+  one segment per unfound word, disappearing as words are found.
 - When a letter's last word is found it turns into a **frog**, and paths vanish
   once every word using them is found — the board simplifies as you go.
 - **Tap groups of 2+ same-colored frogs** to pop them for bonus points
@@ -38,9 +40,10 @@ There is no level bank. Every puzzle is built at load time by
 
 1. A seeded RNG (xmur3 + mulberry32) drives everything, so a seed uniquely
    determines the puzzle.
-2. Real dictionary words are laid onto the grid as self-avoiding orthogonal
-   paths. After the first word, each placement must cross letters already on
-   the board, so the puzzle forms one interlocking web.
+2. Real dictionary words are laid onto the grid as self-avoiding 8-way paths
+   (diagonals allowed, but two diagonal connections never cross). After the
+   first word, each placement must cross letters already on the board, so the
+   puzzle forms one interlocking web.
 3. Placement repeats until **every cell is covered by at least one word**;
    a few extra words traced over existing letters are added for density.
 4. The required word list *is* the construction — solvability is guaranteed

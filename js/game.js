@@ -192,6 +192,32 @@
   }
 
   // ---------------------------------------------------------------- rendering
+  function polar(r, deg) {
+    var rad = ((deg - 90) * Math.PI) / 180;
+    return { x: 50 + r * Math.cos(rad), y: 50 + r * Math.sin(rad) };
+  }
+
+  // Segmented arc around the tile: one segment per unfound word still using
+  // this letter, out of the letter's total word count. Segments disappear
+  // clockwise from the top as words are found.
+  function ringSVG(remaining, total) {
+    var r = 44.5;
+    var step = 360 / total;
+    var gap = total === 1 ? 10 : Math.min(20, step * 0.28);
+    var paths = '';
+    for (var i = 0; i < remaining; i++) {
+      var a0 = i * step + gap / 2;
+      var a1 = (i + 1) * step - gap / 2;
+      var p0 = polar(r, a0);
+      var p1 = polar(r, a1);
+      var large = a1 - a0 > 180 ? 1 : 0;
+      paths += '<path d="M ' + p0.x.toFixed(2) + ' ' + p0.y.toFixed(2) +
+        ' A ' + r + ' ' + r + ' 0 ' + large + ' 1 ' +
+        p1.x.toFixed(2) + ' ' + p1.y.toFixed(2) + '"/>';
+    }
+    return '<svg class="ring" viewBox="0 0 100 100">' + paths + '</svg>';
+  }
+
   function renderTile(cell) {
     var tile = tiles[cell];
     var state = cellState(cell);
@@ -200,12 +226,8 @@
       (state === 'frog' ? ' frog' : state === 'pad' ? ' pad' : '') +
       (inTrace ? ' selected' : '');
     if (state === 'letter') {
-      var pipCount = unfoundOwnerCount(cell);
-      var pips = pipCount <= 4
-        ? new Array(pipCount + 1).join('<i></i>')
-        : '<span>' + pipCount + '</span>';
-      tile.innerHTML = '<span class="letter">' + puz.letters[cell] + '</span>' +
-        '<span class="pips">' + pips + '</span>';
+      tile.innerHTML = ringSVG(unfoundOwnerCount(cell), cellOwners[cell].length) +
+        '<span class="letter">' + puz.letters[cell] + '</span>';
     } else if (state === 'frog') {
       tile.innerHTML = frogSVG(puz.frogColors[cell]);
     } else {
