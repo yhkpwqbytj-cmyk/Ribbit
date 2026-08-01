@@ -306,17 +306,84 @@
   }
 
   // ---------------------------------------------------------------- gameplay
-  function claimWord(word) {
+  // Finding a plural also clears its unfound singular (walls -> wall,
+  // dishes -> dish) so near-duplicate slots never linger.
+  function pluralSiblings(word) {
+    var sibs = [];
+    if (word.charAt(word.length - 1) === 's') {
+      var s1 = word.slice(0, -1);
+      if (wordIndex.hasOwnProperty(s1) && !found[s1]) sibs.push(s1);
+      if (word.slice(-2) === 'es') {
+        var s2 = word.slice(0, -2);
+        if (wordIndex.hasOwnProperty(s2) && !found[s2]) sibs.push(s2);
+      }
+    }
+    return sibs;
+  }
+
+  function wordPoints(entry) {
+    return entry.word.length * 10 + (entry.star ? 25 : 0);
+  }
+
+  // Draw the completed trace once more so it can flash and fade with the
+  // tiles; cleared by the next refreshAll().
+  function resultLine(cells, cls) {
+    traceLayer.innerHTML = '';
+    if (cells.length < 2) return;
+    var pts = cells.map(function (cell) {
+      var p = center(cell);
+      return p.x + ',' + p.y;
+    }).join(' ');
+    var poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    poly.setAttribute('points', pts);
+    poly.setAttribute('stroke-width', cs() * 0.3);
+    poly.setAttribute('class', cls);
+    traceLayer.appendChild(poly);
+  }
+
+  function flashTiles(cells, cls, stagger) {
+    cells.forEach(function (cell, i) {
+      var tile = tiles[cell];
+      tile.classList.remove('selected');
+      if (stagger) tile.style.animationDelay = (i * 45) + 'ms';
+      tile.classList.add(cls);
+    });
+  }
+
+  function claimWord(word, cells) {
     var entry = puz.words[wordIndex[word]];
     found[word] = true;
     foundCount++;
-    var pts = word.length * 10 + (entry.star ? 25 : 0);
+    var pts = wordPoints(entry);
+    var also = pluralSiblings(word);
+    also.forEach(function (sib) {
+      found[sib] = true;
+      foundCount++;
+      pts += wordPoints(puz.words[wordIndex[sib]]);
+    });
     score += pts;
-    toast(entry.star ? '★ ' + word.toUpperCase() + '! +' + pts : word.toUpperCase() + ' +' + pts,
-      entry.star ? 'star' : 'good');
-    refreshAll();
-    save();
-    if (foundCount === puz.words.length) setTimeout(showWin, 700);
+
+    var label = (entry.star ? '★ ' : '') + word.toUpperCase() + ' +' + pts;
+    if (also.length) label += ' · also ' + also.join(', ').toUpperCase();
+    toast(label, entry.star ? 'star' : 'good');
+    scoreEl.textContent = score;
+    progressEl.textContent = foundCount + '/' + puz.words.length;
+
+    resultLine(cells, 'correct-line');
+    flashTiles(cells, 'correct', true);
+    setTimeout(function () {
+      cells.forEach(function (c) { tiles[c].style.animationDelay = ''; });
+      refreshAll();
+      save();
+      if (foundCount === puz.words.length) setTimeout(showWin, 500);
+    }, 480 + cells.length * 45);
+  }
+
+  function rejectTrace(cells, msg) {
+    toast(msg);
+    resultLine(cells, 'wrong-line');
+    flashTiles(cells, 'wrong', false);
+    setTimeout(refreshAll, 460);
   }
 
   function submitTrace() {
@@ -326,25 +393,26 @@
     if (cells.length < 2) { renderTrace(); refreshAll(); return; }
     var word = cells.map(function (c) { return puz.letters[c]; }).join('');
     if (word.length < Gen.MIN_LEN) {
-      toast('Words need ' + Gen.MIN_LEN + '+ letters');
+      rejectTrace(cells, 'Words need ' + Gen.MIN_LEN + '+ letters');
     } else if (wordIndex.hasOwnProperty(word) && !found[word]) {
-      claimWord(word);
-      return;
+      claimWord(word, cells);
     } else if (found[word]) {
       toast('Already found');
+      refreshAll();
     } else if (validSet[word] && bonusWords.indexOf(word) === -1) {
       bonusWords.push(word);
       score += 5;
       toast('Bonus! ' + word.toUpperCase() + ' +5', 'good');
-      save();
+      scoreEl.textContent = score;
+      resultLine(cells, 'correct-line');
+      flashTiles(cells, 'correct', false);
+      setTimeout(function () { refreshAll(); save(); }, 480);
     } else if (bonusWords.indexOf(word) !== -1) {
       toast('Bonus already found');
+      refreshAll();
     } else {
-      toast('Not a word in this pond');
-      boardEl.classList.add('shake');
-      setTimeout(function () { boardEl.classList.remove('shake'); }, 320);
+      rejectTrace(cells, 'Not a word in this pond');
     }
-    refreshAll();
   }
 
   function popFrogs(cell) {

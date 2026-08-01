@@ -185,6 +185,63 @@
     return { byLen: byLen, byLenSet: byLenSet };
   }
 
+  // Find EVERY dictionary word traceable along the board's connections, via
+  // prefix-pruned DFS. The generator adds all of them to the required list so
+  // any word a player can legally trace is a real puzzle word — connections
+  // only ever disappear during play, so a mid-game trace uses a subset of the
+  // initial connections and must have been found by this sweep.
+  // Deterministic: cells and neighbors are visited in index order.
+  function sweepWords(letters, edgeSet, size, dict) {
+    var cellCount = size * size;
+    var adj = [];
+    var i;
+    for (i = 0; i < cellCount; i++) adj.push([]);
+    Object.keys(edgeSet).forEach(function (key) {
+      var p = key.split('-');
+      adj[+p[0]].push(+p[1]);
+      adj[+p[1]].push(+p[0]);
+    });
+    for (i = 0; i < cellCount; i++) adj[i].sort(function (a, b) { return a - b; });
+
+    var prefixes = {};
+    var wordSet = {};
+    for (var len = MIN_LEN; len <= MAX_LEN; len++) {
+      for (var k = 0; k < dict.byLen[len].length; k++) {
+        var w = dict.byLen[len][k];
+        wordSet[w] = true;
+        for (var j = 1; j <= w.length; j++) prefixes[w.slice(0, j)] = true;
+      }
+    }
+
+    var out = [];
+    var seen = {};
+    var path = [];
+    var visited = new Array(cellCount).fill(false);
+    function dfs(cell, str) {
+      visited[cell] = true;
+      path.push(cell);
+      if (str.length >= MIN_LEN && wordSet[str] && !seen[str]) {
+        seen[str] = true;
+        out.push({ word: str, path: path.slice() });
+      }
+      if (str.length < MAX_LEN) {
+        var nbs = adj[cell];
+        for (var n = 0; n < nbs.length; n++) {
+          var nb = nbs[n];
+          if (visited[nb]) continue;
+          var ns = str + letters[nb];
+          if (prefixes[ns]) dfs(nb, ns);
+        }
+      }
+      visited[cell] = false;
+      path.pop();
+    }
+    for (var start = 0; start < cellCount; start++) {
+      if (prefixes[letters[start]]) dfs(start, letters[start]);
+    }
+    return out;
+  }
+
   /**
    * Generate a puzzle.
    * @param {string} seedStr deterministic seed
@@ -271,6 +328,17 @@
         extras++;
       }
 
+      // Sweep phase: every other dictionary word already traceable along the
+      // placed connections becomes a required word too, so the puzzle never
+      // rejects a word the board visibly offers.
+      var swept = sweepWords(letters, edgeSet, size, dict);
+      for (var sw = 0; sw < swept.length; sw++) {
+        if (!usedWords[swept[sw].word]) {
+          placed.push(swept[sw]);
+          usedWords[swept[sw].word] = true;
+        }
+      }
+
       // Star words: the longest word(s) in the puzzle.
       var longest = 0;
       for (var m = 0; m < placed.length; m++) longest = Math.max(longest, placed[m].word.length);
@@ -354,6 +422,7 @@
     isDiagonal: isDiagonal,
     crossKey: crossKey,
     parseDict: parseDict,
+    sweepWords: sweepWords,
     generate: generate,
     verifySolvable: verifySolvable
   };

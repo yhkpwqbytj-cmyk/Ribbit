@@ -26,7 +26,10 @@ python3 -m http.server 8000
   once every word using them is found — the board simplifies as you go.
 - **Tap groups of 2+ same-colored frogs** to pop them for bonus points
   (score scales with the square of the group size).
-- Real dictionary words that aren't part of the puzzle earn a small bonus.
+- Every common word traceable along the paths is part of the puzzle (the
+  generator sweeps the finished board to guarantee this), and finding a
+  plural also clears its unfound singular. Rarer dictionary words earn a
+  small bonus.
 - Find every word to clear the pond.
 
 Modes: **Daily** (seeded from today's date — same puzzle every time) and
@@ -45,7 +48,9 @@ There is no level bank. Every puzzle is built at load time by
    first word, each placement must cross letters already on the board, so the
    puzzle forms one interlocking web.
 3. Placement repeats until **every cell is covered by at least one word**;
-   a few extra words traced over existing letters are added for density.
+   a few extra words traced over existing letters are added for density, then
+   a prefix-pruned DFS sweeps the finished connection graph so every common
+   word traceable along the paths joins the required list.
 4. The required word list *is* the construction — solvability is guaranteed
    by definition, not by search. At runtime, a path or letter is only removed
    once *all* words using it are found, so no remaining word can ever be

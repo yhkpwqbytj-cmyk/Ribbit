@@ -32,6 +32,22 @@ for (const size of SIZES) {
       failures++;
       continue;
     }
+    // Completeness: every common word traceable along the board's connections
+    // must be a required word — the game never rejects a traceable word.
+    const edgeSet = {};
+    for (const entry of puz.words) {
+      for (let j = 1; j < entry.path.length; j++) {
+        edgeSet[Gen.edgeKey(entry.path[j - 1], entry.path[j])] = true;
+      }
+    }
+    const inList = new Set(puz.words.map((w) => w.word));
+    const traceable = Gen.sweepWords(puz.letters, edgeSet, size, Gen.parseDict(COMMON));
+    const missing = traceable.filter((t) => !inList.has(t.word));
+    if (missing.length) {
+      console.error(`FAIL completeness ${seed}: traceable but unlisted: ${missing.map((m) => m.word).join(', ')}`);
+      failures++;
+      continue;
+    }
     words += puz.words.length;
   }
   totalWords += words;

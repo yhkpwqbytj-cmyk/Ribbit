@@ -155,9 +155,41 @@ body {
 @keyframes wiggle {
   25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); }
 }
-.board.shake { animation: shake .3s; }
-@keyframes shake {
-  25% { transform: translateX(-6px); } 75% { transform: translateX(6px); }
+
+/* word result feedback: green ripple on a find, red wobble on a miss */
+.tile.correct {
+  background: var(--accent); color: #fff; z-index: 2;
+  animation: correct-pop .5s ease both;
+}
+.tile.correct .ring path { stroke: rgba(255,255,255,.85); }
+@keyframes correct-pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.25); }
+  70% { transform: scale(.94); }
+  100% { transform: scale(1); }
+}
+.tile.wrong {
+  background: #cf5a4e; color: #fff;
+  animation: wrong-wobble .45s ease;
+}
+.tile.wrong .ring path { stroke: rgba(255,255,255,.6); }
+@keyframes wrong-wobble {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7%); }
+  40% { transform: translateX(7%); }
+  60% { transform: translateX(-5%); }
+  80% { transform: translateX(5%); }
+}
+#trace-layer polyline.correct-line {
+  stroke: var(--star); animation: line-fade .8s ease .2s forwards;
+}
+#trace-layer polyline.wrong-line {
+  stroke: #cf5a4e; animation: line-fade .6s ease forwards;
+}
+@keyframes line-fade { to { stroke-opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
 /* ---- toast ---- */
