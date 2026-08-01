@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Ribbit — Pond Word Puzzle</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'&gt;&lt;text y='.9em' font-size='90'&gt;🐸&lt;/text&gt;&lt;/svg&gt;">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-frog">🐸</span>
+        <div>
+          <h1>Ribbit</h1>
+          <p class="tagline">a pond word puzzle</p>
+        </div>
+      </div>
+      <div class="controls">
+        <select id="size-select" title="Board size">
+          <option value="4">Small 4×4</option>
+          <option value="5" selected>Medium 5×5</option>
+          <option value="6">Large 6×6</option>
+        </select>
+        <button id="btn-daily" title="Today's puzzle — same for everyone">Daily</button>
+        <button id="btn-new" title="Generate a fresh random puzzle">New</button>
+        <button id="btn-hint" title="Briefly reveal an unfound word (−15 pts)">Hint</button>
+        <button id="btn-help" title="How to play">?</button>
+      </div>
+    </header>
+
+    <div class="status-row">
+      <div class="score-box">Score <strong id="score">0</strong></div>
+      <div class="trace-word" id="trace-word">&nbsp;</div>
+      <div class="progress-box"><span id="progress">0/0</span> words</div>
+    </div>
+
+    <main class="layout">
+      <div class="board-wrap">
+        <div id="board" class="board">
+          <svg id="edge-layer" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+          <svg id="trace-layer" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+          <!-- tiles injected here -->
+        </div>
+        <div class="toast" id="toast"></div>
+      </div>
+
+      <aside class="side">
+        <h2>Words in this pond</h2>
+        <div id="word-groups"></div>
+        <div class="bonus-box">
+          <h3>Bonus words <span id="bonus-count">0</span></h3>
+          <div id="bonus-list" class="bonus-list"></div>
+        </div>
+        <p class="seed-line">puzzle <code id="seed-label"></code></p>
+      </aside>
+    </main>
+  </div>
+
+  <div class="overlay hidden" id="win-overlay">
+    <div class="modal">
+      <div class="modal-frogs">🐸🐸🐸</div>
+      <h2>Pond cleared!</h2>
+      <p id="win-summary"></p>
+      <div class="modal-buttons">
+        <button id="btn-keep-popping">Keep popping frogs</button>
+        <button id="btn-play-again" class="primary">New puzzle</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="help-overlay">
+    <div class="modal help-modal">
+      <h2>How to play</h2>
+      <ul>
+        <li><strong>Trace words</strong> of 4+ letters by dragging along the paths that connect letters. Only connected letters can follow each other.</li>
+        <li>Every path on the board belongs to at least one hidden word — the word list on the side shows how many of each length remain. <strong>★</strong> marks the longest word in the puzzle.</li>
+        <li>The little dots on each tile show how many unfound words still use that letter.</li>
+        <li>When a letter's last word is found, it turns into a <strong>frog</strong>. Paths disappear once every word using them is found.</li>
+        <li><strong>Tap groups of 2+ same-colored frogs</strong> to pop them for bonus points (bigger groups score much more).</li>
+        <li>Real words that aren't part of the puzzle still earn a small <strong>bonus</strong>.</li>
+        <li>Find every word to clear the pond! Every puzzle is generated on the fly and is always solvable.</li>
+      </ul>
+      <div class="modal-buttons">
+        <button id="btn-close-help" class="primary">Got it</button>
+      </div>
+      <p class="fine-print">A fan-made homage to Puzzmo's Ribbit, for personal use. Not affiliated with Puzzmo.</p>
+    </div>
+  </div>
+
+  <script src="js/data-common.js"></script>
+  <script src="js/data-valid.js"></script>
+  <script src="js/generator.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
